@@ -27,7 +27,7 @@ classifiers = [
 [tool.poetry.dependencies]
 python = "<3.12,>=3.7.1"
 requests = ">=2.25.1"
-singer-sdk = ">=0.17.0"
+singer-sdk = ">=0.17.0, >0.45.0"
 pymongo = { version = ">=4.3.3", extras = ["srv"] }
 orjson = ">=3.8.2"
 genson = "^1.2.2"
