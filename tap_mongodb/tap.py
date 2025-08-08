@@ -47,6 +47,32 @@ def recursively_drop_required(schema: dict) -> None:
                 recursively_drop_required(schema["properties"][prop])
 
 
+def should_exclude_collection(collection_name: str, exclusion_patterns: list[str]) -> bool:
+    """Check if a collection should be excluded based on exclusion patterns.
+    
+    Args:
+        collection_name: The name of the collection to check
+        exclusion_patterns: List of patterns to match against
+        
+    Returns:
+        True if the collection should be excluded, False otherwise
+    """
+    if not exclusion_patterns:
+        return False
+        
+    for pattern in exclusion_patterns:
+        # Handle wildcard patterns
+        if pattern.endswith('*'):
+            prefix = pattern[:-1]
+            if collection_name.startswith(prefix):
+                return True
+        # Handle exact matches
+        elif collection_name == pattern:
+            return True
+            
+    return False
+
+
 class TapMongoDB(Tap):
     """MongoDB tap class."""
 
@@ -113,6 +139,15 @@ class TapMongoDB(Tap):
             description=(
                 "A list of databases to exclude. If this list is empty, no databases"
                 " will be excluded."
+            ),
+        ),
+        th.Property(
+            "collection_excludes",
+            th.ArrayType(th.StringType),
+            description=(
+                "A list of collection name patterns to exclude from schema discovery. "
+                "Patterns can be exact names or use wildcards (e.g., 'user_hourly_activity*'). "
+                "If this list is empty, no collections will be excluded."
             ),
         ),
         th.Property(
@@ -184,6 +219,7 @@ class TapMongoDB(Tap):
             raise RuntimeError("Could not connect to MongoDB to generate catalog") from exc
         db_includes = self.config.get("database_includes", [])
         db_excludes = self.config.get("database_excludes", [])
+        collection_excludes = self.config.get("collection_excludes", [])
         for db_name in client.list_database_names():
             if db_includes and db_name not in db_includes:
                 continue
@@ -202,6 +238,12 @@ class TapMongoDB(Tap):
                 )
                 continue
             for collection in collections:
+                # Skip collections that match exclusion patterns
+                if should_exclude_collection(collection, collection_excludes):
+                    self.logger.debug(
+                        "Skipping collection %s.%s due to exclusion pattern", db_name, collection
+                    )
+                    continue
                 try:
                     client[db_name][collection].find_one()
                 except Exception:
