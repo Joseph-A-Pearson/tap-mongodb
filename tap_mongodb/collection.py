@@ -66,6 +66,29 @@ def _flatten_record(
 singer_sdk.helpers._flattening._flatten_record = _flatten_record
 
 
+def check_record_size(record: dict, max_size: int) -> bool:
+    """Check if a record exceeds the maximum allowed size.
+    
+    Args:
+        record: The record to check
+        max_size: Maximum size in bytes
+        
+    Returns:
+        True if record is within size limit, False otherwise
+    """
+    try:
+        # Serialize the record to check its size
+        serialized = orjson.dumps(
+            record, 
+            default=lambda o: str(o), 
+            option=orjson.OPT_OMIT_MICROSECONDS
+        )
+        return len(serialized) <= max_size
+    except Exception:
+        # If serialization fails, assume the record is too large
+        return False
+
+
 class CollectionStream(Stream):
     """Collection stream class.
 
@@ -128,9 +151,22 @@ class CollectionStream(Stream):
             bookmark = self.get_starting_timestamp(context) 
         else:
             bookmark = self.get_starting_replication_key_value(context) 
+        
+        # Get configuration for record size limit
+        max_record_size = self.config.get("max_record_size", 16777216)  # 16MB default
+        
         for record in self._collection.find(
             {self.replication_key: {"$gt": bookmark}} if bookmark else {}
         ):
+            # Check record size before processing
+            if not check_record_size(record, max_record_size):
+                self.logger.warning(
+                    "Skipping record with _id %s: exceeds maximum size limit of %d bytes",
+                    record.get("_id", "unknown"),
+                    max_record_size
+                )
+                continue
+            
             if self._strategy == "envelope":
                 # Return the record wrapped in a document key
                 yield {"_id": record["_id"], "document": record}

@@ -73,6 +73,16 @@ plugins:
           description: |
             The maximum number of documents to use when inferring the schema.
           value: 2000
+        - name: max_record_size
+          description: |
+            Maximum size of a single record in bytes. Records exceeding this size
+            will be skipped with a warning. Default is 16MB (16777216 bytes).
+          value: 16777216
+        - name: batch_size
+          description: |
+            Number of records to process in each batch. Smaller batches can help
+            with memory usage and chunk size limits. Default is 1000.
+          value: 1000
         - name: stream_maps
         - name: stream_map_config
         - name: batch_config
@@ -81,6 +91,9 @@ plugins:
         stream_prefix: example_
         # Exclude collections that match patterns like user_hourly_activity
         collection_excludes: ["user_hourly_activity*"]
+        # Batch configuration to handle large documents and chunk size limits
+        max_record_size: 8388608  # 8MB - reduced from default 16MB
+        batch_size: 500  # Reduced batch size for better memory management
         # These are all passed directly through to pymongo MongoClient, ie:
         mongo:
           host: localhost

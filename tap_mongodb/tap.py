@@ -175,7 +175,32 @@ class TapMongoDB(Tap):
         ),
         th.Property("stream_maps", th.ObjectType()),
         th.Property("stream_map_config", th.ObjectType()),
-        th.Property("batch_config", th.ObjectType()),
+        th.Property(
+            "batch_config",
+            th.ObjectType(),
+            description=(
+                "Batch configuration for controlling chunk sizes and batch processing. "
+                "Useful for handling large documents or collections."
+            ),
+        ),
+        th.Property(
+            "max_record_size",
+            th.IntegerType,
+            description=(
+                "Maximum size of a single record in bytes. Records exceeding this size "
+                "will be skipped with a warning. Default is 16MB (16777216 bytes)."
+            ),
+            default=16777216,  # 16MB
+        ),
+        th.Property(
+            "batch_size",
+            th.IntegerType,
+            description=(
+                "Number of records to process in each batch. Smaller batches can help "
+                "with memory usage and chunk size limits. Default is 1000."
+            ),
+            default=1000,
+        ),
     ).to_dict()
 
     def get_mongo_config(self) -> dict[str, Any]:
